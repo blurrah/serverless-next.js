@@ -678,6 +678,10 @@
     estree-walker "^1.0.1"
     picomatch "^2.2.2"
 
+"@sls-next/next-aws-lambda@link:../../compat-layers/apigw-lambda-compat":
+  version "0.0.0"
+  uid ""
+
 "@types/aws-lambda@^8.10.57":
   version "8.10.61"
   resolved "https://registry.npmjs.org/@types/aws-lambda/-/aws-lambda-8.10.61.tgz#7471e08843dbdcf09b2494ac5b34c4d1a391e6d0"

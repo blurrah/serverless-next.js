@@ -38,14 +38,16 @@
     "@sls-next/cloudfront": "link:../../libs/cloudfront",
     "@sls-next/domain": "link:../domain",
     "@sls-next/lambda-at-edge": "link:../../libs/lambda-at-edge",
-    "@sls-next/next-aws-lambda": "link:../../compat-layers/apigw-lambda-compat",
     "@sls-next/next-aws-cloudfront": "link:../../compat-layers/lambda-at-edge-compat",
+    "@sls-next/next-aws-lambda": "link:../../compat-layers/apigw-lambda-compat",
     "@sls-next/s3-static-assets": "link:../../libs/s3-static-assets",
     "aws-sdk": "^2.702.0",
     "fs-extra": "^9.0.1"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.63",
     "@types/fs-extra": "^9.0.1",
+    "aws-lambda": "^1.0.6",
     "typescript": "^3.9.6"
   }
 }
