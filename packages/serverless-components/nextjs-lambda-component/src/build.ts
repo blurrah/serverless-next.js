@@ -1,25 +1,24 @@
 import nodeFileTrace, { NodeFileTraceReasons } from "@zeit/node-file-trace";
+
 import execa from "execa";
+import path, { join } from "path";
 import fse from "fs-extra";
-import { join } from "path";
 import getAllFiles from "./lib/getAllFilesInDirectory";
-import path from "path";
+import isDynamicRoute from "./lib/isDynamicRoute";
 import { getSortedRoutes } from "./lib/sortedRoutes";
+import createServerlessConfig from "./lib/createServerlessConfig";
+import expressifyDynamicRoute from "./lib/expressifyDynamicRoute";
+import normalizeNodeModules from "./lib/normalizeNodeModules";
+import pathToRegexStr from "./lib/pathToRegexStr";
+import pathToPosix from "./lib/pathToPosix";
+import { isTrailingSlashRedirect } from "./routing/redirector";
 import {
-  OriginRequestDefaultHandlerManifest,
   OriginRequestApiHandlerManifest,
+  OriginRequestDefaultHandlerManifest,
   RoutesManifest
 } from "../types";
-import isDynamicRoute from "./lib/isDynamicRoute";
-import pathToPosix from "./lib/pathToPosix";
-import expressifyDynamicRoute from "./lib/expressifyDynamicRoute";
-import pathToRegexStr from "./lib/pathToRegexStr";
-import normalizeNodeModules from "./lib/normalizeNodeModules";
-import createServerlessConfig from "./lib/createServerlessConfig";
-import { isTrailingSlashRedirect } from "./routing/redirector";
 
 export const DEFAULT_LAMBDA_CODE_DIR = "default-lambda";
-export const API_LAMBDA_CODE_DIR = "api-lambda";
 
 type BuildOptions = {
   args?: string[];
@@ -31,7 +30,7 @@ type BuildOptions = {
   useStandardLambda?: boolean;
 };
 
-const defaultBuildOptions = {
+const defaultBuildOptions: BuildOptions = {
   args: [],
   cwd: process.cwd(),
   env: {},
@@ -167,7 +166,10 @@ class Builder {
    * @param source
    * @param destination
    */
-  async processAndCopyRoutesManifest(source: string, destination: string) {
+  async processAndCopyRoutesManifest(
+    source: string,
+    destination: string
+  ): Promise<void> {
     const routesManifest = require(source) as RoutesManifest;
 
     // Remove default trailing slash redirects as they are already handled without regex matching.
@@ -267,55 +269,6 @@ class Builder {
       this.processAndCopyRoutesManifest(
         join(this.dotNextDir, "routes-manifest.json"),
         join(this.outputDir, DEFAULT_LAMBDA_CODE_DIR, "routes-manifest.json")
-      )
-    ]);
-  }
-
-  async buildApiLambda(
-    apiBuildManifest: OriginRequestApiHandlerManifest
-  ): Promise<void[]> {
-    let copyTraces: Promise<void>[] = [];
-
-    if (this.buildOptions.useServerlessTraceTarget) {
-      const allApiPages = [
-        ...Object.values(apiBuildManifest.apis.nonDynamic),
-        ...Object.values(apiBuildManifest.apis.dynamic).map(
-          (entry) => entry.file
-        )
-      ];
-
-      const apiPages = Object.values(allApiPages).map((pageFile) =>
-        path.join(this.serverlessDir, pageFile)
-      );
-
-      const { fileList, reasons } = await nodeFileTrace(apiPages, {
-        base: process.cwd()
-      });
-
-      copyTraces = this.copyLambdaHandlerDependencies(
-        fileList,
-        reasons,
-        API_LAMBDA_CODE_DIR
-      );
-    }
-
-    return Promise.all([
-      ...copyTraces,
-      fse.copy(
-        require.resolve("@sls-next/lambda-at-edge/dist/api-handler.js"),
-        join(this.outputDir, API_LAMBDA_CODE_DIR, "index.js")
-      ),
-      fse.copy(
-        join(this.serverlessDir, "pages/api"),
-        join(this.outputDir, API_LAMBDA_CODE_DIR, "pages/api")
-      ),
-      fse.writeJson(
-        join(this.outputDir, API_LAMBDA_CODE_DIR, "manifest.json"),
-        apiBuildManifest
-      ),
-      fse.copy(
-        join(this.dotNextDir, "routes-manifest.json"),
-        join(this.outputDir, API_LAMBDA_CODE_DIR, "routes-manifest.json")
       )
     ]);
   }
@@ -454,15 +407,18 @@ class Builder {
     await this.cleanupDotNext();
 
     await fse.emptyDir(join(this.outputDir, DEFAULT_LAMBDA_CODE_DIR));
-    await fse.emptyDir(join(this.outputDir, API_LAMBDA_CODE_DIR));
+    // TODO: Add support for API lambda
 
+    // @ts-ignore
     const { restoreUserConfig } = await createServerlessConfig(
+      // @ts-ignore
       cwd,
       path.join(this.nextConfigDir),
       useServerlessTraceTarget
     );
 
     try {
+      // @ts-ignore
       const subprocess = execa(cmd, args, {
         cwd,
         env
@@ -484,14 +440,6 @@ class Builder {
     } = await this.prepareBuildManifests();
 
     await this.buildDefaultLambda(defaultBuildManifest);
-
-    const hasAPIPages =
-      Object.keys(apiBuildManifest.apis.nonDynamic).length > 0 ||
-      Object.keys(apiBuildManifest.apis.dynamic).length > 0;
-
-    if (hasAPIPages) {
-      await this.buildApiLambda(apiBuildManifest);
-    }
   }
 }
 

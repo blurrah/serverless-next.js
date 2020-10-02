@@ -49,6 +49,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "1.0.0-gamma.8",
+    "@sls-next/next-aws-lambda": "link:../../compat-layers/apigw-lambda-compat",
     "@zeit/node-file-trace": "^0.6.5",
     "cookie": "^0.4.1",
     "execa": "^4.0.2",
