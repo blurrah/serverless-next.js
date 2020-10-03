@@ -10,7 +10,10 @@ import {
   RoutesManifest,
   ServerlessComponentInputs
 } from "../types";
-import Builder, { DEFAULT_LAMBDA_CODE_DIR } from "./build";
+import Builder from "./build";
+
+export const DEFAULT_LAMBDA_CODE_DIR = ".serverless_nextjs/default-lambda";
+export const API_LAMBDA_CODE_DIR = ".serverless_nextjs/api-lambda";
 
 type DeploymentResult = {
   appUrl: string;
@@ -132,6 +135,8 @@ class NextjsLambdaComponent extends Component {
       }
     }
 
+    console.log("code is", join(nextConfigPath, DEFAULT_LAMBDA_CODE_DIR));
+
     const defaultLambdaInput: LambdaInput = {
       description: inputs.description || "Default Lambda for NextJS",
       handler: "index.handler",
@@ -149,7 +154,8 @@ class NextjsLambdaComponent extends Component {
       ) as string,
       name: readLambdaInputValue("name", "defaultLambda", undefined) as
         | string
-        | undefined
+        | undefined,
+      region: "eu-central-1"
     };
 
     const defaultLambdaOutputs = await defaultLambda(defaultLambdaInput);

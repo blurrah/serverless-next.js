@@ -21,7 +21,7 @@ const generateConfig = (filename) => ({
     json(),
     commonjs(),
     externals({
-      exclude: "@sls-next/next-aws-cloudfront"
+      exclude: ["@sls-next/next-aws-cloudfront", "@sls-next/next-aws-lambda"]
     }),
     nodeResolve(),
     typescript({
@@ -32,4 +32,6 @@ const generateConfig = (filename) => ({
   inlineDynamicImports: true
 });
 
-export default ["default-handler", "api-handler"].map(generateConfig);
+export default ["default-handler", "api-handler", "default-lambda-handler"].map(
+  generateConfig
+);

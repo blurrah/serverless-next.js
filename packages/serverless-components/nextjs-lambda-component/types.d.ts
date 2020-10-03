@@ -41,6 +41,7 @@ export type LambdaInput = {
   timeout: number;
   runtime: string;
   name?: string;
+  region?: string;
 };
 
 export type DynamicPageKeyValue = {
