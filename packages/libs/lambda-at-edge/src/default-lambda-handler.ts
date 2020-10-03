@@ -7,8 +7,9 @@ export const handler: APIGatewayProxyHandlerV2 = async (
   event,
   context
 ): Promise<APIGatewayProxyResultV2> => {
+  console.log(event);
+  console.log(context);
   const returnPromise = await lambdaApiGwCompatLayer(page)(event, context);
   console.log(returnPromise);
-  returnPromise["headers"]["Content-Type"] = "text/html";
   return returnPromise;
 };

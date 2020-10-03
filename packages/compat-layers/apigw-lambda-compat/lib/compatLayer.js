@@ -2,6 +2,145 @@ const Stream = require("stream");
 const queryString = require("querystring");
 const http = require("http");
 
+/**
+ * Updated request response mapper to return API Gateway V2 (HTTP) response
+ * @param event
+ * @param callback
+ */
+const httpApiReqResMapper = (event, callback) => {
+  const base64Support = process.env.BINARY_SUPPORT === "yes";
+  const response = {
+    isBase64Encoded: base64Support,
+    headers: {}
+  };
+
+  let responsePromise;
+
+  const newStream = new Stream.Readable();
+  const req = Object.assign(newStream, http.IncomingMessage.prototype);
+  // Set up base URL, no need for removing stage prefix in HTTP API Gateway
+  req.url = event.requestContext.http.path || event.rawPath || "/";
+  let qs = event.rawQueryString;
+
+  // Check if there are pathParameters and add them to the querystring
+  if (event.pathParameters) {
+    const pathParametersQs = queryString.stringify(event.pathParameters);
+    if (qs.length > 0) {
+      qs += `&${pathParametersQs}`;
+    } else {
+      qs += pathParametersQs;
+    }
+  }
+
+  if (qs.length > 0) {
+    // Append query parameters to request URL
+    req.url += `?${qs}`;
+  }
+
+  req.method = event.requestContext.http.method;
+  req.rawHeaders = [];
+  req.headers = {};
+
+  const headers = event.headers || {};
+  for (const key of Object.keys(headers)) {
+    // Multiple API Gateway V2 header values are comma separated, split them.
+    for (const value of headers[key].split(",")) {
+      req.rawHeaders.push(key);
+      req.rawHeaders.push(value);
+    }
+    req.headers[key.toLowerCase()] = headers[key].toString();
+  }
+
+  req.getHeader = (name) => {
+    return req.headers[name.toLowerCase()];
+  };
+  req.getHeaders = () => {
+    return req.headers;
+  };
+
+  req.connection = {};
+
+  const res = new Stream();
+  Object.defineProperty(res, "statusCode", {
+    get() {
+      return response.statusCode;
+    },
+    set(statusCode) {
+      response.statusCode = statusCode;
+    }
+  });
+
+  res.headers = {};
+  res.writeHead = (status, headers) => {
+    response.statusCode = status;
+    if (headers) res.headers = Object.assign(res.headers, headers);
+  };
+  res.write = (chunk) => {
+    if (!response.body) {
+      response.body = Buffer.from("");
+    }
+
+    response.body = Buffer.concat([
+      Buffer.isBuffer(response.body)
+        ? response.body
+        : Buffer.from(response.body),
+      Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    ]);
+  };
+  res.setHeader = (name, value) => {
+    res.headers[name.toLowerCase()] = value;
+  };
+  res.removeHeader = (name) => {
+    delete res.headers[name.toLowerCase()];
+  };
+  res.getHeader = (name) => {
+    return res.headers[name.toLowerCase()];
+  };
+  res.getHeaders = () => {
+    return res.headers;
+  };
+  res.hasHeader = (name) => {
+    return !!res.getHeader(name);
+  };
+
+  const onResEnd = (callback, resolve) => (text) => {
+    if (text) res.write(text);
+    if (!res.statusCode) {
+      res.statusCode = 200;
+    }
+
+    if (response.body) {
+      response.body = Buffer.from(response.body).toString(
+        base64Support ? "base64" : undefined
+      );
+    }
+    response.headers = res.headers;
+    res.writeHead(response.statusCode);
+
+    if (callback) {
+      callback(null, response);
+    } else {
+      resolve(response);
+    }
+  };
+
+  if (typeof callback === "function") {
+    res.end = onResEnd(callback);
+  } else {
+    responsePromise = new Promise((resolve) => {
+      res.end = onResEnd(null, resolve);
+    });
+  }
+
+  if (event.body) {
+    req.push(event.body, event.isBase64Encoded ? "base64" : undefined);
+  }
+
+  req.push(null);
+
+  return { req, res, responsePromise };
+};
+
 const reqResMapper = (event, callback) => {
   const base64Support = process.env.BINARY_SUPPORT === "yes";
   const response = {
@@ -152,4 +291,4 @@ const reqResMapper = (event, callback) => {
   return { req, res, responsePromise };
 };
 
-module.exports = reqResMapper;
+module.exports = httpApiReqResMapper;
